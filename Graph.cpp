@@ -11,12 +11,10 @@ using namespace std;
     } while(0)
 
 bool Graph::checkInvariants() const {
-    size_t sizev = nodes.size();
-    passert(parents.size() == sizev);
-    passert(matchings.size() == sizev);
+    size_t sizev = size();
 
     // matching coherence
-    for(uint i = 0 ; i < nodes.size(); ++i){
+    for(uint i = 0 ; i < size(); ++i){
         if(parents[i].isNone() && !matchings[i].isNone()){
             // matchings is involutive
             passert(matchings[matchings[i]].get() == i);
@@ -28,21 +26,21 @@ bool Graph::checkInvariants() const {
 
 void Graph::contract(std::vector<uint> oddCycle) {
     assert(checkInvariants());
-    assert(oddCycle.size());
+    assert(oddCycle.size() % 2);
     auto matching = matchings[oddCycle[0]];
-    uint current = nodes.size();
-    nodes.push_back(ContractedNode());
+    uint current = size();
+    cnodes.push_back(ContractedNode());
     parents.push_back(OptIndex());
     matchings.push_back(matching);
     for(uint i : oddCycle) {
         parents[i] = current;
     }
     if(!matching.isNone()){
-        assert(matching< current);
+        assert(matching < current);
         assert(count(ALL(oddCycle),matchings[matching]));
         matchings[matching] = current;
     }
-    nodes.back() = ContractedNode{move(oddCycle)};
+    cnodes.back() = ContractedNode{move(oddCycle)};
     assert(checkInvariants());
 }
 
@@ -54,7 +52,7 @@ bool Graph::augment() {
         Graph& g;
         OptIndex returnTo; // when contracting
         std::vector<uint> cycle; // when contracting
-        DFS(Graph& g) : marked(g.nodes.size(), Mark::NotSeen), g(g){}
+        DFS(Graph& g) : marked(g.size(), Mark::NotSeen), g(g){}
         enum class RetVal{Fail, Augment, Contract};
 
         RetVal exp(uint afterNode){
@@ -153,4 +151,12 @@ void Graph::printGraph(std::ostream& out, const std::string& s) const {
         }
     }
     out << "}" << endl;
+}
+
+void Graph::unfold() {
+    for(uint i = size() -1 ; i > originalSize ; ++i){
+        if(matchings[i].isNone()){
+            
+        }
+    }
 }

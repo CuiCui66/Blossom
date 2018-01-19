@@ -2,15 +2,15 @@
 #include <set>
 #include <assert.h>
 #include <algorithm>
-#include <variant>
+// #include <variant>
 
 using uint = unsigned int;
 
 #define ALL(v) (v).begin(),(v).end()
 
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+// template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+// template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 class Graph{
     class OptIndex{
@@ -40,70 +40,69 @@ class Graph{
     };
     using SimpleNode = std::set<uint>; // adjacency set
     using ContractedNode = std::vector<uint>; // node in contraction
-    using Node = std::variant<SimpleNode,ContractedNode>;
+
+    // index of snodes[i] is i, index of cnodes[i] is snodes.size() +i
+    std::vector<SimpleNode> snodes;
+    std::vector<ContractedNode> cnodes;
+    std::vector<OptIndex> parents;
+    std::vector<OptIndex> matchings;
+    uint originalSize;
+
     template<typename F>
     void for_each_adj(uint v, F&& f){
         static_assert(std::is_invocable_v<F, uint>);
         static_assert(std::is_same_v<std::invoke_result_t<F, uint>, void>);
-        std::visit(overloaded{
-                [&](SimpleNode& sn){
-                    for(uint i : sn){
-                        f(i);
-                    }
-                },
-                    [&](ContractedNode& cn){
-                        for(uint i : cn){
-                            for_each_adj(i,f);
-                        }
-                    }
-            },nodes[v]);
+        if (v < originalSize){
+            for(uint i : snodes[v]){
+                f(i);
+            }
+        }
+        else{
+            for(uint i : cnodes[v - originalSize]){
+                for_each_adj(i,f);
+            }
+        }
     }
     template<typename F>
-    void for_each_adj(uint v, F&& f) const {
+    void for_each_adj(uint v, F&& f) const{
         static_assert(std::is_invocable_v<F, uint>);
         static_assert(std::is_same_v<std::invoke_result_t<F, uint>, void>);
-        std::visit(overloaded{
-                [&](const SimpleNode& sn){
-                    for(uint i : sn){
-                        f(i);
-                    }
-                },
-                    [&](const ContractedNode& cn){
-                        for(uint i : cn){
-                            for_each_adj(i,f);
-                        }
-                    }
-            },nodes[v]);
+        if (v < originalSize){
+            for(uint i : snodes[v]){
+                f(i);
+            }
+        }
+        else{
+            for(uint i : cnodes[v-originalSize]){
+                for_each_adj(i,f);
+            }
+        }
     }
 
-    std::vector<Node> nodes;
-    std::vector<OptIndex> parents;
-    std::vector<OptIndex> matchings;
+
 public:
-    Graph(uint n) : nodes(n), parents(n), matchings(n){
+    Graph(uint n) : snodes(n), parents(n), matchings(n), originalSize(n){
     }
     bool checkInvariants()const;
     void addEdge(uint i, uint j){
-        assert(i < nodes.size());
-        assert(nodes[i].index() == 0);
-        assert(j < nodes.size());
-        assert(nodes[j].index() == 0);
-        std::get<SimpleNode>(nodes[i]).insert(j);
-        std::get<SimpleNode>(nodes[j]).insert(i);
+        assert(i < snodes.size());
+        assert(j < snodes.size());
+        snodes[i].insert(j);
+        snodes[j].insert(i);
     }
     void match(uint i, uint j){
-        assert(i < nodes.size());
-        assert(j < nodes.size());
+        assert(i < size());
+        assert(j < size());
         // TODO add more verifications
         matchings[i] = j;
         matchings[j] = i;
     }
     void contract(std::vector<uint> oddCycle);
     size_t size() const{
-        size_t sizev = nodes.size();
+        size_t sizev = originalSize + cnodes.size();
         assert(parents.size() == sizev);
         assert(matchings.size() == sizev);
-        return nodes.size();
+        return sizev;
     }
     /// returns false if graph cannot be augmented
     bool augment();
@@ -126,6 +125,9 @@ public:
     }
 
     void printGraph(std::ostream& out, const std::string& s) const;
+
+    /// uncontract all nodes and rebuild the matching
+    void unfold();
 };
 
 
