@@ -11,152 +11,224 @@ using namespace std;
     } while(0)
 
 bool Graph::checkInvariants() const {
-    size_t sizev = size();
-
-    // matching coherence
-    for(uint i = 0 ; i < size(); ++i){
-        if(parents[i].isNone() && !matchings[i].isNone()){
-            // matchings is involutive
-            passert(matchings[matchings[i]].get() == i);
+    // edge reciprocity
+    for(uint i = 0 ; i < originalSize; ++i){
+        for(uint adj : snodes[i]){
+            passert(count(ALL(snodes[adj]),i));
         }
     }
+
+    // matching coherence
+    for(uint i = 0 ; i < originalSize; ++i){
+        if(!matchings[i].isNone()){
+            // matchings is involutive
+            passert(matchings[matchings[i]].get() == i);
+
+            // matching is a real edge
+            passert(count(ALL(snodes[i]),matchings[i].get()));
+        }
+    }
+
+    if(stack.empty()) return true; // not in augment.
+
+    for(auto v : stack){
+        cout << v <<endl;
+        passert(v == getTopParent(v));
+    }
+
+
+    passert(preBef.size() == originalSize);
+    passert(preAft.size() == originalSize);
+    passert(marked.size() == originalSize);
+
+    for(uint i = 0 ; i < originalSize ; ++i){
+        if(!preAft[i].isNone()) passert(followPathAft(i) == stack[0]);
+        if(!preBef[i].isNone()) passert(followPathBef(i) == stack[0]);
+        if(marked[i] == Mark::After) passert(!preAft[i].isNone());
+        if(marked[i] == Mark::Before) passert(!preBef[i].isNone());
+    }
+
+
 
     return true;
 }
 
-void Graph::contract(std::vector<uint> oddCycle) {
-    assert(checkInvariants());
-    assert(oddCycle.size() % 2);
-    auto matching = matchings[oddCycle[0]];
-    uint current = size();
-    cnodes.push_back(ContractedNode());
-    parents.push_back(OptIndex());
-    matchings.push_back(matching);
-    for(uint i : oddCycle) {
-        parents[i] = current;
-    }
-    if(!matching.isNone()){
-        assert(matching < current);
-        assert(count(ALL(oddCycle),matchings[matching]));
-        matchings[matching] = current;
-    }
-    cnodes.back() = ContractedNode{move(oddCycle)};
-    assert(checkInvariants());
+uint Graph::followPathAft(uint aftNode)const{
+    if(preAft[aftNode].isNone()) return aftNode;
+    else return followPathBef(preAft[aftNode]);
+}
+uint Graph::followPathBef(uint befNode)const{
+    assert(!preBef[befNode].isNone());
+    return followPathAft(preBef[befNode]);
 }
 
-bool Graph::augment() {
-    cout << "augment " << endl;
-    struct  DFS{
-        enum class Mark{NotSeen, Before, After};
-        vector<Mark> marked;
-        Graph& g;
-        OptIndex returnTo; // when contracting
-        std::vector<uint> cycle; // when contracting
-        DFS(Graph& g) : marked(g.size(), Mark::NotSeen), g(g){}
-        enum class RetVal{Fail, Augment, Contract};
-
-        RetVal exp(uint afterNode){
-            cout << "Exploring after " << afterNode << endl;
-            assert(marked[afterNode] == Mark::After);
-            try {
-                g.for_each_adj(afterNode,[this,afterNode](uint befNode){
-                        befNode = g.getTopParent(befNode);
-                        if(befNode == afterNode) return;
-                        cout << "testing " << befNode << endl;
-                        switch(marked[befNode]){
-                            case Mark::Before:
-                                return;
-                            case Mark::After:
-                                cout << afterNode << " goes to "
-                                     << befNode << ": odd Cycle !" << endl;
-                                returnTo = befNode;
-                                cycle.push_back(afterNode);
-                                throw RetVal::Contract;
-                            default:
-                                {}
-                        }
-                        if(g.matchings[befNode].isNone()){// found end of augmenting path
-                            cout << "Reached end of augmenting cycle " << befNode << endl;
-                            g.match(afterNode,befNode);
-                            throw RetVal::Augment;
-                        }
-                        else {
-                            cout << "following " << befNode << endl;
-                            marked[befNode] = Mark::Before;
-                            marked[g.matchings[befNode]] = Mark::After;
-                            switch(exp(g.matchings[befNode])){
-                                case RetVal::Fail:
-                                    return;
-                                case RetVal::Augment:
-                                    cout << "Going back augmenting, linking " << afterNode
-                                         << " and " << befNode;
-                                    g.match(afterNode,befNode);
-                                    throw RetVal::Augment;
-                                case RetVal::Contract:
-                                    cycle.push_back(befNode);
-                                    cycle.push_back(afterNode);
-                                    if(afterNode == returnTo){
-                                        cout << "ending contraction in " << afterNode << endl;
-                                        g.contract(move(cycle));
-                                        cycle.clear(); // to be conformant with standard
-                                        returnTo = OptIndex();
-                                        marked.push_back(Mark::After);
-                                        cout << "node " << g.size() -1 << " is built" << endl;
-                                        throw exp(g.size()-1);
-                                    }
-                            }
-                        }
-                    });
-            }
-            catch(RetVal v){
-                cout << "ending exploration of " << afterNode << endl;
-                return v;
-            }
-            cout << "ending exploration of " << afterNode << " with failure" << endl;
-            return RetVal::Fail;
+Graph::RetVal Graph::expAft(uint aftNode) {
+    //cout << "exploring after node " << aftNode << endl;
+    for(uint befNode: snodes[aftNode]){
+        uint befNodep = getTopParent(befNode);
+        //cout << "testing " << befNode << " in " << befNodep <<  endl;
+        if(befNodep == getTopParent(aftNode)) continue;
+        switch(marked[befNodep]){
+            case Mark::Before:
+                continue;
+            case Mark::After:
+                //cout << "reached " << befNodep << ": odd cycle" << endl;
+                // odd cycle: contract
+                contractUntil(befNodep);
+                preBef[aftNode] = befNode;
+                continue;
+            case Mark::NotSeen:
+                break;
         }
-    };
-    DFS dfs(*this);
-    uint sizev = size();
-    for(uint i = 0 ; i < sizev ; ++i){
-        if(parents[i].isNone() && matchings[i].isNone()){
-            dfs.marked[i] = DFS::Mark::After;
-            switch (dfs.exp(i)){
-                case DFS::RetVal::Contract:
+        assert(befNode == befNodep);
+        preBef[befNode] = aftNode;
+        marked[befNode] = Mark::Before;
+        stack.push_back(befNode);
+        //cout << "following " << befNode << endl;
+        switch(expBef(befNode)){
+            case RetVal::Continue:
+                stack.pop_back();
+                continue;
+            case RetVal::End:
+                return RetVal::End;
+            case RetVal::InContract:
+                if(aftNode != getTopParent(aftNode)) preBef[aftNode] = befNode;
+                continue;
+        }
+    }
+    if(preBef[aftNode].isNone()){
+        //cout << "ending exploration of after node" << aftNode << " normally" << endl;
+        return RetVal::Continue;
+    }
+    else{
+        //cout << "ending exploration of after node" << aftNode << " by contracting" << endl;
+        return RetVal::InContract;
+    }
+    /*explore for parent node.
+      for all edges to v:
+      check if v(after taking the parent) is marked
+      if marked bef : do nothing on this edge
+      if marked aft : do contraction immediately (and return contract when finished)
+      and set our preBef
+      if marked nothing continue
+      set preBef and then call expBef(v)
+      if id returns fail, continue for
+      if it returns contract, continue for but switch to mode contract.
+      set out PreBef.
+      if it returns augment, return augment.
+    */
+}
+
+void Graph::contractUntil(uint until) {
+    while(stack.back() != until){
+        parents[stack.back()] = until;
+        stack.pop_back();
+    }
+}
+
+Graph::RetVal Graph::expBef(uint befNode) {
+    //cout << "exploring before node " << befNode << endl;
+    assert(befNode == getTopParent(befNode));
+    assert(!preBef[befNode].isNone());
+    if(matchings[befNode].isNone()){
+        //cout << "reached end of augmenting path in " << befNode << endl;
+        augmentFrom(befNode);
+        return RetVal::End;
+    }
+    uint matched = matchings[befNode];
+    preAft[matched] = befNode;
+    marked[matched] = Mark::After;
+    stack.push_back(matched);
+    switch(expAft(matched)){
+        case RetVal::Continue:
+            stack.pop_back();
+            return RetVal::Continue;
+        case RetVal::End:
+            return RetVal::End;
+        case RetVal::InContract:
+            //cout << "reexploring before node " << befNode << "as after node" << endl;
+            preAft[befNode] = matched;
+            switch(expAft(befNode)){
+                case RetVal::Continue:
+                    return RetVal::InContract;
+                case RetVal::InContract:
+                    return RetVal::InContract;
+                case RetVal::End:
+                    return RetVal::End;
+            }
+    }
+    //cout << "end of exploring before node " << befNode << endl;
+}
+
+void Graph::augmentFrom(uint from) {
+    OptIndex node = from;
+    do{
+        assert(!preBef[node].isNone());
+        match(node,preBef[node]);
+        node = preAft[preBef[node]];
+    } while(!node.isNone());
+}
+
+bool Graph::augment(){
+    //cout << "augment !!!" << endl;
+    for(uint i = 0 ; i < originalSize ; ++i){
+        if(matchings[i].isNone()){
+            marked[i] = Mark::After;
+            stack.push_back(i);
+            RetVal res = expAft(i);
+            parents.assign(originalSize, {});
+            preBef.assign(originalSize,{});
+            preAft.assign(originalSize,{});
+            marked.assign(originalSize, Mark::NotSeen);
+            stack.resize(0);
+            switch (res){
+                case RetVal::InContract:
                     assert(!"unreachable");
                     exit(1);
-                case DFS::RetVal::Augment:
+                case RetVal::End:
                     return true; // the graph has been augmented.
-                case DFS::RetVal::Fail:
+                case RetVal::Continue:
                     continue;
             }
         }
     }
-    return false; // the graph cannot be augmented.
+    return false;
 }
+
+
+/*
+  if unmatched, do augmentation, then return Augment
+  if matched, set preAft on it and then call expAft on it
+  if Returns fail return fail.
+  if Returns augment, return augment
+  if returns contract
+  set preAft on self toward after.
+  Explore as after: call expAft on yourself.
+  if it returns contract, return contract
+  if it returns fail, return contract.
+  if it returns augment. return augment.
+*/
+
+
+
+
 
 void Graph::printGraph(std::ostream& out, const std::string& s) const {
     assert(checkInvariants());
+
+
     out << "graph " << s << "{" << endl;
     for(uint i = size(); i != uint(-1) ; --i){
         if(parents[i].isNone()){
             out << i << endl;
-            for_each_adj(i,[&](uint j){
+            for(uint j : snodes[i]){
                     if (i < j && matchings[i].data() != j)
                         out << i << " -- " << getTopParent(j) << endl;
-                });
+                };
             if(!matchings[i].isNone()){
                 if(i < matchings[i]) out << i << " -- " << matchings[i] << "[style=bold]" << endl;
             }
         }
     }
     out << "}" << endl;
-}
-
-void Graph::unfold() {
-    for(uint i = size() -1 ; i > originalSize ; ++i){
-        if(matchings[i].isNone()){
-            
-        }
-    }
 }

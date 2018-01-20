@@ -1,7 +1,7 @@
 #include <vector>
-#include <set>
 #include <assert.h>
 #include <algorithm>
+#include <iostream>
 // #include <variant>
 
 using uint = unsigned int;
@@ -9,8 +9,8 @@ using uint = unsigned int;
 #define ALL(v) (v).begin(),(v).end()
 
 
-// template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-// template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 class Graph{
     class OptIndex{
@@ -37,72 +37,57 @@ class Graph{
         uint data()const {
             return val;
         }
+        void setNone(){
+            val = -1;
+        }
     };
-    using SimpleNode = std::set<uint>; // adjacency set
-    using ContractedNode = std::vector<uint>; // node in contraction
+    using SimpleNode = std::vector<uint>;
 
-    // index of snodes[i] is i, index of cnodes[i] is snodes.size() +i
     std::vector<SimpleNode> snodes;
-    std::vector<ContractedNode> cnodes;
     std::vector<OptIndex> parents;
     std::vector<OptIndex> matchings;
     uint originalSize;
 
-    template<typename F>
-    void for_each_adj(uint v, F&& f){
-        static_assert(std::is_invocable_v<F, uint>);
-        static_assert(std::is_same_v<std::invoke_result_t<F, uint>, void>);
-        if (v < originalSize){
-            for(uint i : snodes[v]){
-                f(i);
-            }
-        }
-        else{
-            for(uint i : cnodes[v - originalSize]){
-                for_each_adj(i,f);
-            }
-        }
-    }
-    template<typename F>
-    void for_each_adj(uint v, F&& f) const{
-        static_assert(std::is_invocable_v<F, uint>);
-        static_assert(std::is_same_v<std::invoke_result_t<F, uint>, void>);
-        if (v < originalSize){
-            for(uint i : snodes[v]){
-                f(i);
-            }
-        }
-        else{
-            for(uint i : cnodes[v-originalSize]){
-                for_each_adj(i,f);
-            }
-        }
-    }
+    enum class Mark{NotSeen, Before, After};
+    std::vector<OptIndex> preAft;
+    std::vector<OptIndex> preBef;
+    std::vector<Mark> marked;
+    std::vector<uint> stack;
+    enum class RetVal{Continue, End , InContract};
 
+    RetVal expAft(uint aftNode);
+    RetVal expBef(uint befNode);
+    void contractUntil(uint until);
+    // augment from "from" following alternatively preBef and preAft
+    void augmentFrom(uint from);
+
+    uint followPathAft(uint aftNode)const;
+    uint followPathBef(uint befNode)const;
 
 public:
-    Graph(uint n) : snodes(n), parents(n), matchings(n), originalSize(n){
+    Graph(uint n) : snodes(n), parents(n), matchings(n),
+                    originalSize(n), preAft(n), preBef(n), marked(n){
+        stack.reserve(n);
     }
     bool checkInvariants()const;
     void addEdge(uint i, uint j){
-        assert(i < snodes.size());
-        assert(j < snodes.size());
-        snodes[i].insert(j);
-        snodes[j].insert(i);
-    }
-    void match(uint i, uint j){
         assert(i < size());
         assert(j < size());
-        // TODO add more verifications
+        snodes[i].push_back(j);
+        snodes[j].push_back(i);
+    }
+    void match(uint i, uint j){
+        //std::cout << "matching " << i << " and " << j << std::endl;
+        assert(i < size());
+        assert(j < size());
         matchings[i] = j;
         matchings[j] = i;
     }
     void contract(std::vector<uint> oddCycle);
     size_t size() const{
-        size_t sizev = originalSize + cnodes.size();
-        assert(parents.size() == sizev);
-        assert(matchings.size() == sizev);
-        return sizev;
+        assert(parents.size() == originalSize);
+        assert(matchings.size() == originalSize);
+        return originalSize;
     }
     /// returns false if graph cannot be augmented
     bool augment();
@@ -126,8 +111,14 @@ public:
 
     void printGraph(std::ostream& out, const std::string& s) const;
 
-    /// uncontract all nodes and rebuild the matching
-    void unfold();
+    uint unmatched(){
+        assert(checkInvariants());
+        uint res = 0;
+        for(auto optint: matchings){
+            if(optint.isNone()) ++res;
+        }
+        return res;
+    }
 };
 
 
