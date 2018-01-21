@@ -1,5 +1,5 @@
-#include <iostream>
 #include "Graph.h"
+#include <iostream>
 
 using namespace std;
 
@@ -15,7 +15,10 @@ int main(){
         cin >> n1 >> n2;
         g.addEdge(n1, n2);
     }
+
+    g.printGraph(cerr, "Ginit");
     while(g.augment());
-    //    g.printGraph(cout, "G");
-    cout << g.unmatched() << endl;
+    cout << "finished !!" << endl;
+    g.printGraph(cerr, "Gend");
+    //cout << g.unmatched() << endl;
 }

@@ -1,6 +1,7 @@
 #include <vector>
 #include <assert.h>
 #include <algorithm>
+#include <ostream>
 #include <iostream>
 // #include <variant>
 
@@ -8,6 +9,7 @@ using uint = unsigned int;
 
 #define ALL(v) (v).begin(),(v).end()
 
+#define LOG(x) x
 
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
@@ -17,27 +19,27 @@ class Graph{
         uint val;
     public:
         OptIndex(uint val = -1) :val(val){}
-        uint get()const{
+        inline uint get()const{
             assert(val != uint(-1));
             return val;
         }
-        uint& get(){
+        inline uint& get(){
             assert(val != uint(-1));
             return val;
         }
         inline bool isNone()const{
             return val == uint(-1);
         }
-        operator uint() const{
+        inline operator uint() const{
             return get();
         }
-        operator uint&(){
+        inline operator uint&(){
             return get();
         }
-        uint data()const {
+        inline uint data()const {
             return val;
         }
-        void setNone(){
+        inline void setNone(){
             val = -1;
         }
     };
@@ -52,12 +54,21 @@ class Graph{
     std::vector<OptIndex> preAft;
     std::vector<OptIndex> preBef;
     std::vector<Mark> marked;
+    std::vector<bool> inStack;
     std::vector<uint> stack;
-    enum class RetVal{Continue, End , InContract};
+    enum class RetVal{
+        /// Means that non end of augmenting path or contraction was found
+        Continue,
+        /// Means that augmentation has already been done : just returns to top.
+        End ,
+        /// Means that your are now part of a contracted node : you must set or have set
+        /// both preBef and preAft.
+        InContract};
 
     RetVal expAft(uint aftNode);
     RetVal expBef(uint befNode);
-    void contractUntil(uint until);
+    // return true if end was found during contraction.
+    bool contractTo(uint node, uint stackNode);
     // augment from "from" following alternatively preBef and preAft
     void augmentFrom(uint from);
 
@@ -66,7 +77,7 @@ class Graph{
 
 public:
     Graph(uint n) : snodes(n), parents(n), matchings(n),
-                    originalSize(n), preAft(n), preBef(n), marked(n){
+                    originalSize(n), preAft(n), preBef(n), marked(n), inStack(n){
         stack.reserve(n);
     }
     bool checkInvariants()const;
@@ -77,7 +88,7 @@ public:
         snodes[j].push_back(i);
     }
     void match(uint i, uint j){
-        //std::cout << "matching " << i << " and " << j << std::endl;
+        std::cout << "matching " << i << " and " << j << std::endl;
         assert(i < size());
         assert(j < size());
         matchings[i] = j;
