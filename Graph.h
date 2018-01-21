@@ -1,4 +1,5 @@
 #include <vector>
+#include <deque>
 #include <assert.h>
 #include <algorithm>
 #include <ostream>
@@ -9,10 +10,10 @@ using uint = unsigned int;
 
 #define ALL(v) (v).begin(),(v).end()
 
-#define LOG(x) x
+#define LOG(x)
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+//template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+//template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 class Graph{
     class OptIndex{
@@ -53,32 +54,31 @@ class Graph{
     enum class Mark{NotSeen, Before, After};
     std::vector<OptIndex> preAft;
     std::vector<OptIndex> preBef;
+    // value base[i] has meaning iff marked[i] = Mark::Before and i is contracted
     std::vector<Mark> marked;
-    std::vector<bool> inStack;
-    std::vector<uint> stack;
-    enum class RetVal{
-        /// Means that non end of augmenting path or contraction was found
-        Continue,
-        /// Means that augmentation has already been done : just returns to top.
-        End ,
-        /// Means that your are now part of a contracted node : you must set or have set
-        /// both preBef and preAft.
-        InContract};
+    std::vector<std::pair<uint,uint>> base;
+    std::deque<uint> todo;
+    OptIndex root;
 
-    RetVal expAft(uint aftNode);
-    RetVal expBef(uint befNode);
+    bool expAft(uint aftNode);
+    bool expBef(uint befNode);
     // return true if end was found during contraction.
-    bool contractTo(uint node, uint stackNode);
+    void contractTo(uint nodel, uint noder);
     // augment from "from" following alternatively preBef and preAft
     void augmentFrom(uint from);
+    void augmentFromTo(uint from, uint to);
 
     uint followPathAft(uint aftNode)const;
     uint followPathBef(uint befNode)const;
+    bool findPathAft(uint aftNode, uint nodeToFind)const;
+    bool findPathBef(uint befNode, uint nodeToFind)const;
+
+    /// node1 and node2 must be node of contracted graph.
+    uint findCommonAncestor(uint nodel, uint noder);
 
 public:
     Graph(uint n) : snodes(n), parents(n), matchings(n),
-                    originalSize(n), preAft(n), preBef(n), marked(n), inStack(n){
-        stack.reserve(n);
+                    originalSize(n), preAft(n), preBef(n), marked(n), base(n){
     }
     bool checkInvariants()const;
     void addEdge(uint i, uint j){
@@ -88,13 +88,12 @@ public:
         snodes[j].push_back(i);
     }
     void match(uint i, uint j){
-        std::cout << "matching " << i << " and " << j << std::endl;
+        LOG(std::cout << "matching " << i << " and " << j << std::endl);
         assert(i < size());
         assert(j < size());
         matchings[i] = j;
         matchings[j] = i;
     }
-    void contract(std::vector<uint> oddCycle);
     size_t size() const{
         assert(parents.size() == originalSize);
         assert(matchings.size() == originalSize);

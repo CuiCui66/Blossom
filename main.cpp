@@ -16,9 +16,12 @@ int main(){
         g.addEdge(n1, n2);
     }
 
-    g.printGraph(cerr, "Ginit");
-    while(g.augment());
-    cout << "finished !!" << endl;
-    g.printGraph(cerr, "Gend");
-    //cout << g.unmatched() << endl;
+    LOG(g.printGraph(cerr, "Ginit"));
+    while(g.augment())
+        ;
+    LOG(g.printGraph(cerr, "Gend"));
+    if(!g.checkInvariants()){
+        cout << "error in matching, you should enable assertion and debug" << endl;
+    }
+    cout << g.unmatched() << " unmatched" << endl;
 }

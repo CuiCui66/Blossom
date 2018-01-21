@@ -39,36 +39,45 @@ bool Graph::checkInvariants() const {
         }
     }
 
-    if(stack.empty()) return true; // not in augment.
-
-    std::vector<bool> inStack2(originalSize);
-    for(auto v : stack){
-        //cout << v <<endl;
-        passert(v == getTopParent(v));
-        inStack2[v] = true;
-    }
-    passert(inStack2 == inStack);
+    if(root.isNone()) return true; // not in augment.
 
 
     passert(preBef.size() == originalSize);
     passert(preAft.size() == originalSize);
     passert(marked.size() == originalSize);
+    passert(base.size() == originalSize);
 
     for(uint i = 0 ; i < originalSize ; ++i){
-        if(i == stack[0]) continue;
+        if(i == root) continue;
         //cout << "checking " << i << endl;
-        if(!parents[i].isNone()) {
-            passert(!preAft[i].isNone());
-            passert(!preBef[i].isNone());
+        switch(marked[i]){
+            case Mark::NotSeen:
+                passert(preAft[i].isNone());
+                passert(preBef[i].isNone());
+                break;
+            case Mark::After:
+                passert(!preAft[i].isNone());
+                passert(preBef[i].isNone());
+                passert(followPathAft(i) == root);
+                passert(matchings[i] == preAft[i]);
+                break;
+            case Mark::Before:
+                passert(preAft[i].isNone());
+                passert(!preBef[i].isNone());
+                passert(followPathBef(i) == root);
+                if( i != getTopParent(i)){
+                    auto [u,v] = base[i];
+                    passert(marked[getTopParent(u)] == Mark::After);
+                    passert(getTopParent(u) == getTopParent(v));
+                }
+                break;
         }
-        if(!preAft[i].isNone()) passert(followPathAft(i) == stack[0]);
-        if(!preBef[i].isNone()) passert(followPathBef(i) == stack[0]);
-        if(marked[i] == Mark::After) passert(!preAft[i].isNone());
-        if(marked[i] == Mark::Before) passert(!preBef[i].isNone());
-        if(!preAft[i].isNone()) passert(matchings[i] == preAft[i]);
+
     }
 
-
+    for(auto i : preAft){
+        if(!i.isNone()) passert(marked[i] == Mark::Before);
+    }
 
     return true;
 }
@@ -79,11 +88,13 @@ uint Graph::followPathAft(uint aftNode)const{
 }
 uint Graph::followPathBef(uint befNode)const{
     assert(!preBef[befNode].isNone());
-    return followPathAft(preBef[befNode]);
+    return followPathAft(getTopParent(preBef[befNode]));
 }
 
-Graph::RetVal Graph::expAft(uint aftNode) {
+
+bool Graph::expAft(uint aftNode) {
     LOG(cout << "exploring after node " << aftNode << endl);
+    assert(marked[getTopParent(aftNode)] == Mark::After);
     assert(checkInvariants());
     for(uint befNode: snodes[aftNode]){
         uint befNodep = getTopParent(befNode);
@@ -93,7 +104,8 @@ Graph::RetVal Graph::expAft(uint aftNode) {
             case Mark::Before:
                 continue;
             case Mark::After:
-                LOG(cout << "reached " << befNodep << ": odd cycle" << endl);
+                LOG(cout << "reached " << befNode << " in " << befNodep
+                    << ": odd cycle" << endl);
                 // odd cycle: contract
                 contractTo(befNode, aftNode);
                 continue;
@@ -104,135 +116,60 @@ Graph::RetVal Graph::expAft(uint aftNode) {
         LOG(cout << "1setting preBef of " << befNode << " to " << aftNode << endl);
         preBef[befNode] = aftNode;
         marked[befNode] = Mark::Before;
-        inStack[befNode] = true;
-        stack.push_back(befNode);
         LOG(cout << "following " << befNode << endl);
-        switch(expBef(befNode)){
-            case RetVal::Continue:
-                inStack[stack.back()] = false;
-                stack.pop_back();
-                continue;
-            case RetVal::End:
-                return RetVal::End;
-            case RetVal::InContract:
-                if(aftNode != getTopParent(aftNode)){
-                    LOG(cout << "2setting preBef of " << aftNode << " to " << befNode << endl);
-                    preBef[aftNode] = befNode;
-                }
-                continue;
-        }
+        if(expBef(befNode)) return true;
     }
-    if(preBef[aftNode].isNone()){
-        LOG(cout << "ending exploration of after node " << aftNode << " normally" << endl);
-        return RetVal::Continue;
-    }
-    else{
-        LOG(cout << "ending exploration of after node " << aftNode << " by contracting" << endl);
-        return RetVal::InContract;
-    }
-    /*explore for parent node.
-      for all edges to v:
-      check if v(after taking the parent) is marked
-      if marked bef : do nothing on this edge
-      if marked aft : do contraction immediately (and return contract when finished)
-      and set our preBef
-      if marked nothing continue
-      set preBef and then call expBef(v)
-      if id returns fail, continue for
-      if it returns contract, continue for but switch to mode contract.
-      set out PreBef.
-      if it returns augment, return augment.
-    */
-}
-
-bool Graph::contractTo(uint node, uint stackNode) {
-    LOG(cout << "contracting to " << node << " in " << getTopParent(node) << endl);
-    // computing common ancestor
-    uint ancestor = getTopParent(node);
-    while (!inStack[ancestor]){
-        assert(!preAft[ancestor].isNone());
-        assert(!preBef[preAft[ancestor]].isNone());
-        ancestor = getTopParent(preBef[preAft[ancestor]]);
-    }
-    assert(ancestor == getTopParent(ancestor));
-    LOG(cout << "ancestor is " << ancestor <<  endl);
-
-    if (stackNode != ancestor and preBef[stackNode].isNone()){
-        LOG(cout << "3setting preBef of " << stackNode << " to " << node << endl);
-        preBef[stackNode] = node;
-    }
-    if (node != ancestor and preBef[node].isNone()){
-        LOG(cout << "3setting preBef of " << stackNode << " to " << node << endl);
-        preBef[stackNode] = node;
-    }
-    // merging on stack side
-    while(stack.back() != ancestor){
-        parents[stack.back()] = ancestor;
-        inStack[stack.back()] = false;
-        LOG(cout << "merging stack " << stack.back() << endl);
-        stack.pop_back();
-        assert(!stack.empty());
-    }
-
-    // setting pre aft and preBef on stack side
-    uint current = getTopParent(stackNode);
-    while (current != ancestor){
-        assert(!preAft[current].isNone());
-        uint befNode = preAft[current];
-        assert(preAft[befNode].isNone());
-        preAft[befNode] = current;
-        assert(!preBef[befNode].isNone());
-        current = preBef[befNode];
-        assert(preBef[current].isNone());
-        preBef[current] = befNode;
-        current = getTopParent(current);
-    }
-
-    //majority of cases:
-    if(getTopParent(node) == ancestor) return false;
-
-    // merging on non-stack side
-    current = node;
-    LOG(cout << "contracting to2 " << node << " in " << getTopParent(node) << endl);
-    while (getTopParent(current) != ancestor){
-        LOG(cout << "merging non-stack " << current << " by parent " << getTopParent(current) << endl);
-        parents[getTopParent(current)] = ancestor;
-        assert(!preAft[current].isNone());
-        current = preAft[current];
-        LOG(cout << "merging non-stack " << current << " by parent " << getTopParent(current) << endl);
-        parents[getTopParent(current)] = ancestor;
-        assert(!preBef[current].isNone());
-        current = preBef[current];
-    }
-
-    // calling expAft on non-after explored node on non stack-size and setting expBef/ expAft
-    current = node;
-    uint befNode = stackNode;
-    while (current != ancestor){
-        if (preBef[current].isNone()){
-            LOG(cout << "4setting preBef of " << current << " to " << stackNode << endl);
-            preBef[current] = befNode;
-        }
-
-        assert(!preAft[current].isNone());
-        uint befNode = preAft[current];
-        if(preAft[befNode].isNone()){
-            LOG(cout << "setting preAft of " << befNode << " to " << current << endl);
-            preAft[befNode] = current;
-            switch(expAft(befNode)){
-                case RetVal::End:
-                    return true;
-                default:
-                    break;
-            }
-        }
-        assert(!preBef[befNode].isNone());
-        current = preBef[befNode];
-    }
+    LOG(cout << "ending exploration of after node " << aftNode << " in "
+        << getTopParent(aftNode) << endl);
     return false;
 }
 
-Graph::RetVal Graph::expBef(uint befNode) {
+void Graph::contractTo(uint nodel, uint noder) {
+    uint nodelp = getTopParent(nodel);
+    uint noderp = getTopParent(noder);
+    LOG(cout << "contracting with edge " << nodel << " in " << nodelp
+        << " -- " << noder << " in " << noderp << endl);
+
+    assert(marked[nodelp] == Mark::After);
+    assert(marked[noderp] == Mark::After);
+
+    uint ancestor = findCommonAncestor(nodelp, noderp);
+
+    uint curl = nodelp;
+    while(curl != ancestor){
+        parents[curl] = ancestor;
+        uint befNode = preAft[curl];
+        base[befNode] = pair(nodel,noder);
+        todo.push_back(befNode);
+        parents[befNode] = ancestor;
+        curl = getTopParent(preBef[befNode]);
+    }
+    uint curr = noderp;
+    while(curr != ancestor){
+        parents[curr] = ancestor;
+        uint befNode = preAft[curr];
+        base[befNode] = pair(noder,nodel);
+        todo.push_back(befNode);
+        parents[befNode] = ancestor;
+        curr = getTopParent(preBef[befNode]);
+    }
+}
+
+uint Graph::findCommonAncestor(uint nodel, uint noder) {
+    vector<bool> seen(originalSize, false);
+    seen[nodel] = seen[noder] = true;
+
+    uint curl = nodel, curr = noder;
+    while(true){
+        if(curl != root) curl = getTopParent(preBef[preAft[curl]]);
+        if(curr != root) curr = getTopParent(preBef[preAft[curr]]);
+        if(seen[curl]) return curl;
+        if(seen[curr]) return curr;
+        seen[curr] = seen[curl] = true;
+    }
+}
+
+bool Graph::expBef(uint befNode) {
     LOG(cout << "exploring before node " << befNode << endl);
     assert(checkInvariants());
     assert(befNode == getTopParent(befNode));
@@ -240,48 +177,69 @@ Graph::RetVal Graph::expBef(uint befNode) {
     if(matchings[befNode].isNone()){
         LOG(cout << "reached end of augmenting path in " << befNode << endl);
         augmentFrom(befNode);
-        return RetVal::End;
+        return true;
     }
     uint matched = matchings[befNode];
 
     LOG(cout << "setting preAft of " << matched << " to " << befNode << endl);
     preAft[matched] = befNode;
     marked[matched] = Mark::After;
-    inStack[matched] = true;
-    stack.push_back(matched);
-    switch(expAft(matched)){
-        case RetVal::Continue:
-            inStack[stack.back()] = false;
-            stack.pop_back();
-            return RetVal::Continue;
-        case RetVal::End:
-            return RetVal::End;
-        case RetVal::InContract:
-            LOG(cout << "reexploring before node " << befNode << "as after node" << endl);
-
-            LOG(cout << "setting preAft of " << befNode << " to " << matched << endl);
-            preAft[befNode] = matched;
-            switch(expAft(befNode)){
-                case RetVal::Continue:
-                    return RetVal::InContract;
-                case RetVal::InContract:
-                    return RetVal::InContract;
-                case RetVal::End:
-                    return RetVal::End;
-            }
-    }
+    todo.push_back(matched);
     LOG(cout << "end of exploring before node " << befNode << endl);
+    return false;
 }
 
+// augment path from from to root.
 void Graph::augmentFrom(uint from) {
-    LOG(cout << "before augmenting" << endl);
+    LOG(cout << "starting augmentation in" << from << endl);
     assert(checkInvariants());
-    OptIndex node = from;
-    do{
-        assert(!preBef[node].isNone());
-        match(node,preBef[node]);
-        node = preAft[preBef[node]];
-    } while(!node.isNone());
+    assert(marked[from] == Mark::Before);
+    match(from,preBef[from]);
+    from = preBef[from];
+    while(true){
+        // each loop, we go smaller in blossom heirachy. Since the inclusion is a good order,
+        // the loop will terminate.
+        // This also ensure that the path won't go twice at the same place
+        while(marked[from] == Mark::Before){
+            //go up in from's blossom. (first parent).
+            auto [baseNode, oppositeBaseNode] = base[from];
+            augmentFromTo(baseNode,from);
+            match(baseNode,oppositeBaseNode);
+            from = oppositeBaseNode;
+        }
+        if(from == root) return;
+        // we need from to be Mark::After here.
+        uint befNode = preAft[from];
+        from = preBef[befNode];
+        match(from, befNode);
+    }
+}
+
+// take an odd alternating path between from and to that have matching edge on both side
+// from must be a descendant of to in alternating tree.
+// if from is before, it must be in an blossom and it will take it the other way around
+// reduce matching size by one.
+void Graph::augmentFromTo(uint from, uint to) {
+    LOG(cout << "augmenting from" << from << " to " << to << endl);
+    assert(marked[to] == Mark::Before);
+    while(true){
+        cout << "hoy" << endl;
+        // each loop, we go smaller in blossom heirachy. Since the inclusion is a good order,
+        // the loop will terminate.
+        // This also ensure that the path won't go twice at the same place
+        while(marked[from] == Mark::Before){
+            //go up in from's blossom. (first parent).
+            auto [baseNode, oppositeBaseNode] = base[from];
+            augmentFromTo(baseNode,from);
+            match(baseNode,oppositeBaseNode);
+            from = oppositeBaseNode;
+        }
+        // we need from to be Mark::After here.
+        uint befNode = preAft[from];
+        if(befNode == to) return;
+        uint from = preBef[befNode];
+        match(from, befNode);
+    }
 }
 
 bool Graph::augment(){
@@ -289,45 +247,23 @@ bool Graph::augment(){
     for(uint i = 0 ; i < originalSize ; ++i){
         if(matchings[i].isNone()){
             marked[i] = Mark::After;
-            inStack[i] = true;
-            stack.push_back(i);
-            RetVal res = expAft(i);
-            parents.assign(originalSize, {});
+            root = i;
+            todo.push_back(i);
+            while(!todo.empty() and !expAft(todo.front())) todo.pop_front();
+            parents.assign(originalSize,{});
             preBef.assign(originalSize,{});
             preAft.assign(originalSize,{});
             marked.assign(originalSize, Mark::NotSeen);
-            stack.resize(0);
-            inStack.assign(originalSize, false);
             LOG(cout << "after augmenting" << endl);
             assert(checkInvariants());
-            switch (res){
-                case RetVal::InContract:
-                    assert(!"unreachable");
-                    exit(1);
-                case RetVal::End:
-                    return true; // the graph has been augmented.
-                case RetVal::Continue:
-                    continue;
+            if(!todo.empty()){
+                todo.clear();
+                return true;
             }
         }
     }
     return false;
 }
-
-
-/*
-  if unmatched, do augmentation, then return Augment
-  if matched, set preAft on it and then call expAft on it
-  if Returns fail return fail.
-  if Returns augment, return augment
-  if returns contract
-  set preAft on self toward after.
-  Explore as after: call expAft on yourself.
-  if it returns contract, return contract
-  if it returns fail, return contract.
-  if it returns augment. return augment.
-*/
-
 
 
 
