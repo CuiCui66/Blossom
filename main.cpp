@@ -20,8 +20,8 @@ int main(){
     while(g.augment())
         ;
     LOG(g.printGraph(cerr, "Gend"));
-    if(!g.checkInvariants()){
+    /*if(!g.checkInvariants()){
         cout << "error in matching, you should enable assertion and debug" << endl;
-    }
+        }*/
     cout << g.unmatched() << " unmatched" << endl;
 }

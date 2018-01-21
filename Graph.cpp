@@ -22,32 +22,32 @@ bool Graph::checkInvariants() const {
         })
 
     // edge reciprocity
-    for(uint i = 0 ; i < originalSize; ++i){
-        for(uint adj : snodes[i]){
-            passert(count(ALL(snodes[adj]),i));
+    for(uint i = 0 ; i < size; ++i){
+        for(uint adji : adj[i]){
+            passert(count(ALL(adj[adji]),i));
         }
     }
 
     // matching coherence
-    for(uint i = 0 ; i < originalSize; ++i){
+    for(uint i = 0 ; i < size; ++i){
         if(!matchings[i].isNone()){
             // matchings is involutive
             passert(matchings[matchings[i]].get() == i);
 
             // matching is a real edge
-            passert(count(ALL(snodes[i]),matchings[i].get()));
+            passert(count(ALL(adj[i]),matchings[i].get()));
         }
     }
 
     if(root.isNone()) return true; // not in augment.
 
 
-    passert(preBef.size() == originalSize);
-    passert(preAft.size() == originalSize);
-    passert(marked.size() == originalSize);
-    passert(base.size() == originalSize);
+    passert(preBef.size() == size);
+    passert(preAft.size() == size);
+    passert(marked.size() == size);
+    passert(base.size() == size);
 
-    for(uint i = 0 ; i < originalSize ; ++i){
+    for(uint i = 0 ; i < size ; ++i){
         if(i == root) continue;
         //cout << "checking " << i << endl;
         switch(marked[i]){
@@ -96,7 +96,7 @@ bool Graph::expAft(uint aftNode) {
     LOG(cout << "exploring after node " << aftNode << endl);
     assert(marked[getTopParent(aftNode)] == Mark::After);
     assert(checkInvariants());
-    for(uint befNode: snodes[aftNode]){
+    for(uint befNode: adj[aftNode]){
         uint befNodep = getTopParent(befNode);
         LOG(cout << "testing " << befNode << " in " << befNodep <<  endl);
         if(befNodep == getTopParent(aftNode)) continue;
@@ -156,7 +156,7 @@ void Graph::contractTo(uint nodel, uint noder) {
 }
 
 uint Graph::findCommonAncestor(uint nodel, uint noder) {
-    vector<bool> seen(originalSize, false);
+    vector<bool> seen(size, false);
     seen[nodel] = seen[noder] = true;
 
     uint curl = nodel, curr = noder;
@@ -189,7 +189,6 @@ bool Graph::expBef(uint befNode) {
     return false;
 }
 
-// augment path from from to root.
 void Graph::augmentFrom(uint from) {
     LOG(cout << "starting augmentation in" << from << endl);
     assert(checkInvariants());
@@ -215,15 +214,10 @@ void Graph::augmentFrom(uint from) {
     }
 }
 
-// take an odd alternating path between from and to that have matching edge on both side
-// from must be a descendant of to in alternating tree.
-// if from is before, it must be in an blossom and it will take it the other way around
-// reduce matching size by one.
 void Graph::augmentFromTo(uint from, uint to) {
     LOG(cout << "augmenting from" << from << " to " << to << endl);
     assert(marked[to] == Mark::Before);
     while(true){
-        cout << "hoy" << endl;
         // each loop, we go smaller in blossom heirachy. Since the inclusion is a good order,
         // the loop will terminate.
         // This also ensure that the path won't go twice at the same place
@@ -244,20 +238,21 @@ void Graph::augmentFromTo(uint from, uint to) {
 
 bool Graph::augment(){
     LOG(cout << endl << "augment !!!" << endl);
-    for(uint i = 0 ; i < originalSize ; ++i){
+    for(uint i = 0 ; i < size ; ++i){
         if(matchings[i].isNone()){
             marked[i] = Mark::After;
             root = i;
             todo.push_back(i);
             while(!todo.empty() and !expAft(todo.front())) todo.pop_front();
-            parents.assign(originalSize,{});
-            preBef.assign(originalSize,{});
-            preAft.assign(originalSize,{});
-            marked.assign(originalSize, Mark::NotSeen);
+            parents.assign(size,{});
+            preBef.assign(size,{});
+            preAft.assign(size,{});
+            marked.assign(size, Mark::NotSeen);
             LOG(cout << "after augmenting" << endl);
             assert(checkInvariants());
             if(!todo.empty()){
                 todo.clear();
+                root.setNone();
                 return true;
             }
         }
@@ -274,13 +269,13 @@ void Graph::printGraph(std::ostream& out, const std::string& s) const {
     out << "digraph " << s << "{" << endl;
     out << "\tlabelloc=\"t\"" << endl;
     out << "\tlabel=\"" << s <<"\"" << endl;
-    for (uint i = 0 ; i < originalSize ; ++i){
+    for (uint i = 0 ; i < size ; ++i){
         out << i << "[label=\"" << i << " in " << getTopParent(i) << "\"]" << endl;
     }
     // normal edges
     out << "\tsubgraph Normal{" << endl << "\t\tedge [dir=none]" << endl;
-    for(uint i = 0; i < originalSize ; ++i){
-        for(uint j : snodes[i]){
+    for(uint i = 0; i < size ; ++i){
+        for(uint j : adj[i]){
             if (i < j && matchings[i].data() != j)
                 out << "\t\t" << i << " -> " << j << endl;
         };
@@ -293,7 +288,7 @@ void Graph::printGraph(std::ostream& out, const std::string& s) const {
 
     // preAft edges
     out << "\tsubgraph PreAft{" << endl << "\t\tedge [color=red]" << endl;
-    for(uint i = 0; i < originalSize ; ++i){
+    for(uint i = 0; i < size ; ++i){
         if(preAft[i].isNone()) continue;
         out << i << " -> " << preAft[i] << endl;
     }
@@ -301,7 +296,7 @@ void Graph::printGraph(std::ostream& out, const std::string& s) const {
 
     // preBef edges
     out << "\tsubgraph PreAft{" << endl << "\t\tedge [color=blue]" << endl;
-    for(uint i = 0; i < originalSize ; ++i){
+    for(uint i = 0; i < size ; ++i){
         if(preBef[i].isNone()) continue;
         out << i << " -> " << preBef[i] << endl;
     }

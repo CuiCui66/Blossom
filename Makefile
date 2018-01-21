@@ -1,7 +1,7 @@
 all: blossom
 
 blossom: main.cpp Graph.h Graph.cpp Makefile
-	clang++ -DNDEBUG -O3 -Wall -Wextra -std=c++17 main.cpp Graph.cpp -o blossom
+	clang++ -O3 -Wall -Wextra -std=c++17 main.cpp Graph.cpp -o blossom
 
 testdot: all
 	./blossom < in 2> out.gv
