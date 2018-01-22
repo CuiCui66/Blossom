@@ -128,15 +128,52 @@ some possibilities:
 
 \section{Contracting}
 
-Recherche ancêtre commun
+An odd cycle in the alternating tree (in the contracted graph) is defined as a
+common ancestor (here $r$) and a base edge (here $1b - 2b$). The base edge is
+not part of the alternating tree, but all the other edges of cycle are.
+When contracting this cycle, we defined the representant of the cycle to be
+exactly $r$ :
+\begin{center}
+\begin{tikzpicture}
+  \tikzstyle{every node}=[draw,shape=circle];
+  \node (r) at (0,0) {$r$};
+  \draw[ultra thick] (-2,0) -- (r);
+  \node (1) at (2,1) {$1$};
+  \node (2) at (2,-1) {$2$};
+  \node (1b) at (4, 1) {$1b$};
+  \node (2b) at (4, -1) {$2b$};
+  \foreach \n in {1,2}{
+    \draw (r) -- (\n);
+  }
+  \draw[ultra thick] (1) -- (1b);
+  \draw[ultra thick] (2) -- (2b);
+  \draw[dashed] (1b) -- (2b);
+\end{tikzpicture}
+\end{center}
 
-union-find
+In practice, a contracted node in the contracted alternating tree is always in a
+position of after-node. Before-nodes are always original nodes even in the
+contracted tree. Thus when going up in the contracted tree from an after-node,
+we do not need to explicitly take the representant of the parent, just the
+parent is sufficient.
 
-reexploration des sommet before.
+
+Concretely, during contraction we firstly need to find the common ancestor and
+then:
+\begin{itemize}
+\item We need to tell all the vertex of the cycle that they are represented by
+  $r$.
+\item We need to add any before node that are members of the cycle
+to the todo list (here $1$ and $2$) because there non matched edge were not
+explored until the contraction but are are now outgoing edge of the contracted
+node represented by $r$ which is an after-node.
+\item We need to store for each before-node of the cycle which is the base edge
+  of cycle for decontraction (cf section 4).
+\end{itemize}
 
 \section{Augmenting}
 
-Exemple sur cycle simple + dessin
+
 
 Cas de profondeur 2 et genéralisation + dessin.
 
