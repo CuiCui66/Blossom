@@ -11,6 +11,8 @@
 \usepackage{dsfont}
 \usepackage{graphicx}
 \usepackage[margin=2cm]{geometry}
+\usepackage{tikz}
+\usetikzlibrary{calc}
 
 \newcommand{\K}{\ensuremath\mathbb{K}}
 \newcommand{\N}{\ensuremath\mathbb{N}}
@@ -52,6 +54,30 @@
 
 Arbre alternant + dessin
 
+\begin{tikzpicture}
+  \tikzstyle{every node}=[draw,shape=circle];
+  \node (r) at (0,0) {$r$};
+  \node (1) at (2,2) {$1$};
+  \node (2) at (2,0) {$2$};
+  \node (3) at (2,-2) {$3$};
+  \node (1b) at (4, 2) {$1b$};
+  \node (2b) at (4, 0) {$2b$};
+  \node (3b) at (4,-2) {$3b$};
+  \foreach \n in {1,2,3}{
+    \draw (r) -- (\n);
+  }
+  \draw[ultra thick] (1) -- (1b);
+  \draw[ultra thick] (2) -- (2b);
+  \draw[ultra thick] (3) -- (3b);
+
+  \foreach \n in {1b,2b,3b}{
+    \foreach \x in {-0.5,0,0.5}{
+      \node (tmp) at ([shift=({2,\x})]\n) {$$};
+    \draw (\n) -- (tmp);
+    }
+  }
+\end{tikzpicture}
+
 Notion de sommet before et after
 
 Notion d'arête de base + dessin.
@@ -72,6 +98,10 @@ reexploration des sommet before.
 Exemple sur cycle simple + dessin
 
 Cas de profondeur 2 et genéralisation + dessin.
+
+\section{Initialization}
+
+Théophile
 
 
 
