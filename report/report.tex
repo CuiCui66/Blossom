@@ -81,19 +81,19 @@ Our main structure is an alternating tree which look like this :
 \end{tikzpicture}
 \end{center}
 
-The tree is included in the graph. The bold edge are the the edge in the
+The tree is included in the graph. The bold edges are the the edges in the
 matching. The nodes that are at an odd distance from the root are called
-\emph{before} nodes and those at even distance are called \emph{after} nodes
+\emph{before}-nodes and those at even distance are called \emph{after}-nodes
 
 We also have an union-find structure to represent nodes in the contracted graph: for a
 given node in the original graph, its class in the union-find is the
 corresponding node in the contracted graph. In practice there is no rank
-constraint optimization in the union-find because, we need the force which is
+constraint optimization in the union-find because, we need to force which is
 the representant of each class (see section 3)
 
 Thus we maintain at the same time two trees, the tree in the contracted graph and the
 tree in the original graph. Only the tree in the contracted graph is an
-alternating tree (before node are contracted in after node and thus the will
+alternating tree (before-node are contracted in after-node and thus the will
 have edge not in matching going out of them).
 In practice, only the tree in original graph is
 stored and the tree in contracted graph is deduced with the union find. The tree
@@ -103,18 +103,18 @@ tree you just need to take the representant of the parent node.
 
 \section{Main algorithm}
 
-While exploring we maintain a list of after node to be explored. The main
+While exploring we maintain a list of after-node to be explored. The main
 algorithm consist of taking a node in this list and exploring it until either an
 augmenting path is found or the list is empty ans thus there exists no
 augmenting path starting from $r$.
 
 
-During the exploration of a after node we look at all its neighbors, there are
+During the exploration of an after-node we look at all its neighbors, there are
 some possibilities:
 \begin{itemize}
 \item Both nodes are in the same contracted node : ignore
-\item The neighbor has already been visited as a before node : we do nothing
-\item The neighbor has already been visited as an after node : we have found a
+\item The neighbor has already been visited as a before-node : we do nothing
+\item The neighbor has already been visited as an after-node : we have found a
   cycle, see section 3.
 \item The neighbor has never been visited and is matched : we add this new node
   and its match to the tree and we add the matching node to the todo list.
@@ -192,11 +192,15 @@ path is found.
 
 \section{Initialization}
 
-Théophile
+To speed up the beggining of the algorithm, we first do a greedy matching:
+we define the degree of an edge as
+$\mathrm{deg}((u, v)) = \mathrm{deg}(u) + \mathrm{deg}(v) - 2$.
+It is the number of edges incident to $(u, v)$.
 
+We sort all the edges by increasing degree, and add them one by one to the
+matching, if it is possible.
 
-
-
-
+In practice, we experimented that it improves the speed the speed of the
+algorithm by a factor of two.
 
 \end{document}
