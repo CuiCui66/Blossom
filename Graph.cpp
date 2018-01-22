@@ -231,15 +231,16 @@ void Graph::augmentFromTo(uint from, uint to) {
         // we need from to be Mark::After here.
         uint befNode = preAft[from];
         if(befNode == to) return;
-        uint from = preBef[befNode];
+        from = preBef[befNode];
         match(from, befNode);
     }
 }
 
 bool Graph::augment(){
-    LOG(cout << endl << "augment !!!" << endl);
+    LOG(cout << endl << endl << "augment !!!" << endl);
     for(uint i = 0 ; i < size ; ++i){
         if(matchings[i].isNone()){
+            LOG(cout << endl << "start on exposed node " << i << endl);
             marked[i] = Mark::After;
             root = i;
             todo.push_back(i);
