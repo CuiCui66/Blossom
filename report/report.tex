@@ -173,9 +173,22 @@ node represented by $r$ which is an after-node.
 
 \section{Augmenting}
 
+When we reach an exposed node, we need to find an alternating path to the root.
+However the tree in the original graph is not alternating. Indeed when we go up
+in tree way may follow an unmatched edge and reach a before-node $b$  that is in a
+blossom and thus part of an after-node $r$ in the contracted graph. We thus cannot
+go up from this node, we need to go around the blossom. Therefore, we use the
+base edge $(v,w)$ of the corresponding blossom (that can be accessed in $O(1)$, see
+section 3). We take an alternating path that go from $b$ to $v$ and then from
+$w$ to $r$. However we cannot go downward in the tree, thus, in order to build
+the path from $b$ to $v$ we must go the other way around. when we go from $w$ to
+$r$ we reach $r$ as an after-node and thus can continue our progression up the tree.
 
-
-Cas de profondeur 2 et genéralisation + dessin.
+As we cannot go down the tree, we need to go up from $v$ to $b$ and from $w$ to
+$r$. However these path may reach the same problem: while going up, we may reach
+a before-node in an after-node position. This new blossom will be a sub-blossom
+of our current blossom. we can then call ourselves recursively until the whole
+path is found.
 
 \section{Initialization}
 
