@@ -176,6 +176,8 @@ public:
         }
         return res;
     }
+
+    uint greedyMatch();
 };
 
 

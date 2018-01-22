@@ -306,3 +306,34 @@ void Graph::printGraph(std::ostream& out, const std::string& s) const {
 
 
 }
+
+uint Graph::greedyMatch() {
+    uint nEdges = 0;
+    for(uint i = 0; i < adj.size(); ++i) {
+        nEdges += adj[i].size();
+    }
+    vector<pair<uint, pair<uint, uint>>> edges;
+    edges.reserve(nEdges);
+
+    for(uint i = 0; i < adj.size(); ++i) {
+        for(uint j : adj[i]) {
+            if(i < j) {
+                edges.push_back(make_pair(adj[i].size() + adj[j].size(), pair(i, j)));
+            }
+        }
+    }
+    sort(ALL(edges));
+
+    uint res = 0;
+    for(const auto& edge : edges) {
+        uint u = edge.second.first;
+        uint v = edge.second.second;
+        if(matchings[u].isNone() && matchings[v].isNone()) {
+            matchings[u] = v;
+            matchings[v] = u;
+            res += 1;
+        }
+    }
+
+    return res;
+}
