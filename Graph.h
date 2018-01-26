@@ -8,7 +8,11 @@ using uint = unsigned int;
 
 #define ALL(v) (v).begin(),(v).end()
 
+#ifdef NDEBUG
+#define LOG(x)
+#else
 #define LOG(x) x
+#endif
 
 /// This class provides the whole blossom algorithm.
 /// The graph must be input by using addEdge
@@ -88,7 +92,7 @@ class Graph{
     /// contract a odd cycle whose all edges are in the tree except nodel and noder.
     /// nodel and noder must be the nodes in the original graph.
     /// O(size of cycle * log n)
-    /// the log n is for union find 
+    /// the log n is for union find
     /// the sum of all cycle sizes during one augment is exactly (n + number of cycle),.
     /// Thus, during one augment, this function takes O(n).
     void contractTo(uint nodel, uint noder);

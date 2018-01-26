@@ -91,7 +91,6 @@ uint Graph::followPathBef(uint befNode)const{
     return followPathAft(getTopParent(preBef[befNode]));
 }
 
-
 bool Graph::expAft(uint aftNode) {
     LOG(cout << "exploring after node " << aftNode << endl);
     assert(marked[getTopParent(aftNode)] == Mark::After);
@@ -113,7 +112,8 @@ bool Graph::expAft(uint aftNode) {
                 break;
         }
         assert(befNode == befNodep);
-        LOG(cout << "1setting preBef of " << befNode << " to " << aftNode << endl);
+        LOG(cout << "setting preBef of " << befNode << " to " << aftNode << endl);
+        assert(preBef[befNode].isNone());
         preBef[befNode] = aftNode;
         marked[befNode] = Mark::Before;
         LOG(cout << "following " << befNode << endl);
@@ -163,9 +163,11 @@ uint Graph::findCommonAncestor(uint nodel, uint noder) {
     while(true){
         if(curl != root) curl = getTopParent(preBef[preAft[curl]]);
         if(curr != root) curr = getTopParent(preBef[preAft[curr]]);
-        if(seen[curl]) return curl;
-        if(seen[curr]) return curr;
-        seen[curr] = seen[curl] = true;
+        if(curl == curr) return curl;
+        if(seen[curl] and curl != root) return curl;
+        if(seen[curr] and curr != root) return curr;
+        seen[curl] = true;
+        seen[curr] = true;
     }
 }
 
@@ -182,6 +184,7 @@ bool Graph::expBef(uint befNode) {
     uint matched = matchings[befNode];
 
     LOG(cout << "setting preAft of " << matched << " to " << befNode << endl);
+    assert(preAft[matched].isNone());
     preAft[matched] = befNode;
     marked[matched] = Mark::After;
     todo.push_back(matched);
@@ -196,6 +199,7 @@ void Graph::augmentFrom(uint from) {
     match(from,preBef[from]);
     from = preBef[from];
     while(true){
+
         // each loop, we go smaller in blossom heirachy. Since the inclusion is a good order,
         // the loop will terminate.
         // This also ensure that the path won't go twice at the same place
@@ -203,6 +207,8 @@ void Graph::augmentFrom(uint from) {
             //go up in from's blossom. (first parent).
             auto [baseNode, oppositeBaseNode] = base[from];
             augmentFromTo(baseNode,from);
+            // baseNode must have been disconnected
+            assert(matchings[matchings[baseNode]] != baseNode);
             match(baseNode,oppositeBaseNode);
             from = oppositeBaseNode;
         }
@@ -210,13 +216,18 @@ void Graph::augmentFrom(uint from) {
         // we need from to be Mark::After here.
         uint befNode = preAft[from];
         from = preBef[befNode];
+        // befNode must have been disconnected
+        assert(matchings[matchings[befNode]] != befNode);
         match(from, befNode);
     }
+
+
 }
 
 void Graph::augmentFromTo(uint from, uint to) {
     LOG(cout << "augmenting from" << from << " to " << to << endl);
     assert(marked[to] == Mark::Before);
+
     while(true){
         // each loop, we go smaller in blossom heirachy. Since the inclusion is a good order,
         // the loop will terminate.
@@ -225,6 +236,8 @@ void Graph::augmentFromTo(uint from, uint to) {
             //go up in from's blossom. (first parent).
             auto [baseNode, oppositeBaseNode] = base[from];
             augmentFromTo(baseNode,from);
+            // baseNode must have been disconnected
+            assert(matchings[matchings[baseNode]] != baseNode);
             match(baseNode,oppositeBaseNode);
             from = oppositeBaseNode;
         }
@@ -232,6 +245,8 @@ void Graph::augmentFromTo(uint from, uint to) {
         uint befNode = preAft[from];
         if(befNode == to) return;
         from = preBef[befNode];
+        // befNode must have been disconnected
+        assert(matchings[matchings[befNode]] != befNode);
         match(from, befNode);
     }
 }

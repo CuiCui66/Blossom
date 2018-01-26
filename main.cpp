@@ -2,12 +2,12 @@
 #include <iostream>
 
 //Only for testing purposes
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/max_cardinality_matching.hpp>
+//#include <boost/graph/adjacency_list.hpp>
+//#include <boost/graph/max_cardinality_matching.hpp>
 
 using namespace std;
 
-uint boostMatchSize(const vector<vector<uint>>& adj) {
+/*uint boostMatchSize(const vector<vector<uint>>& adj) {
     using namespace boost;
     typedef adjacency_list<vecS, vecS, undirectedS> boost_graph;
     boost_graph g(adj.size());
@@ -30,7 +30,7 @@ uint boostMatchSize(const vector<vector<uint>>& adj) {
     cout << "Boost time: " << double(t)/CLOCKS_PER_SEC << endl;
 
     return matching_size(g, &mate[0]);
-}
+    }*/
 
 int main(){
     cout.sync_with_stdio(false);
@@ -43,6 +43,14 @@ int main(){
     for(uint i = 0 ; i < m ; ++i){
         uint n1,n2;
         cin >> n1 >> n2;
+        if(n1 >= n){
+            cerr << "At line " << i +1 << " vertex " << n1 << " does not exists" << endl;
+            exit(1);
+        }
+        if(n2 >= n){
+            cerr << "At line " << i +1 << " vertex " << n1 << " does not exists" << endl;
+            exit(1);
+        }
         g.addEdge(n1, n2);
         adj[n1].push_back(n2);
         adj[n2].push_back(n1);
@@ -63,7 +71,8 @@ int main(){
     cout << "Matching size after greedy: " << greedySize << endl;
     cout << "Matching size: " << matchingSize << endl;
     cout << "Unmatched nodes: " << g.unmatched() << endl;
-    if(boostMatchSize(adj) != matchingSize) {
+    // check correction :
+    /*if(boostMatchSize(adj) != matchingSize) {
         cout << "Errors in matching, you should enable assertion and debug" << endl;
-    }
+        }*/
 }

@@ -2,7 +2,7 @@ from random import random
 import sys
 from math import log
 
-n = 100000
+n = 30000
 prob = 2*log(n)/n
 
 edges = []
