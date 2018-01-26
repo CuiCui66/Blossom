@@ -1,0 +1,17 @@
+This is an implementation of blossom algorithm.
+
+This input format is the number of vertex followed by the number M of edges, followed by M pairs of ints: the edges.
+
+If you compile in normal mode, you can use make testdot to have all the log of operation print out on stdout while graphs corrsponding to the log are put in out.pdf. In case of failure, you can use
+make compout to have the graph log until the point of crash.
+
+If you compile with -DNDEBUG, you disable all logs and assertions and thus enable the use of big graphs.
+
+Currently, n both modes, the program ouputs only the number of unmathched vertex but it can be modified in main.cpp to print the matching.
+
+If you have boost library you can uncomment boost related code in main.cpp to perform self-check of correction
+(the output of the algorithm is always verfied to be matching, but we can't check it is optimal without a reference implementation).
+
+If you don't have boost, the self-check won't happen (If it prints 0 unmatched vertex, you still know it is a maximal matcing though).
+
+You can use gen_graph.py (there is tweakable constants inside) to generate randoms graphs.
